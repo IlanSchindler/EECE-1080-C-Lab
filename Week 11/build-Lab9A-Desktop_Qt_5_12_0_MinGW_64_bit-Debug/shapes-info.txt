@@ -1,0 +1,51 @@
+--------------------
+Point 1
+x: 0 y: 0
+Point 2
+x: 0 y: 1
+Point 3
+x: 1 y: 0
+Is a Triangle: 1
+Area: 0.5
+Perimeter: 3.41421
+Equilateral: 1
+--------------------
+ERROR: Entry invalid, too few numbers entered.
+Coordinates cannot be formed.
+--------------------
+Point 1
+x: 0 y: 0
+Point 2
+x: 2.5 y: 0
+Point 3
+x: 2.5 y: 2.5
+Point 4
+x: 0 y: 2.5
+Is a Quadrilateral: 1
+Perimeter: 10
+Area: 6.25
+--------------------
+Point 1
+x: 0 y: 0
+Point 2
+x: 0 y: 1
+Point 3
+x: 1 y: 1
+Point 4
+x: 1 y: 0
+Is a Quadrilateral: 1
+Perimeter: 4
+Area: 1
+--------------------
+ERROR: Too many points entered.
+--------------------
+Center:
+x: 0 y: 0
+Radius: 2.82843
+Is a Circle: 1
+Diameter: 5.65685
+Area: 25.1327
+Circumference: 17.7715
+--------------------
+ERROR: Too few points entered.
+--------------------

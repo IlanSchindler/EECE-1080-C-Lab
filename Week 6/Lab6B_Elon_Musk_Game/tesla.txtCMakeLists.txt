@@ -1,0 +1,949 @@
+#include <iostream>
+#include <windows.h>
+#include <cstdlib>
+#include <ctime>
+#include <iomanip>
+using namespace std;
+
+int userX, userY,
+    elonX, elonY,
+    fordX, fordY,
+    yugoX, yugoY,
+    teslaX, teslaY,
+    frozenTill = 0,
+    turn = 0,
+    wins = 0,
+    losses = 0;
+
+bool
+    elonSpawned = false,
+    elonMoveable = true,
+    isSafe = true,
+    alive = true,
+    ignoreFord = false,
+    ignoreYugo = false,
+    ignoreTesla = false,
+    ignoreFront = false,
+    ignoreBack = false,
+    exitGame = false,
+    newGame = true;
+
+double avgTurns = 0;
+
+const int
+    empty = static_cast<int>(' '),
+    wall  = static_cast<int>('W'),
+    fog   = 219,
+    wallV = 186,
+    wallH = 205,
+    wallC = 206,
+
+    ford  = static_cast<int>('F'),
+    yugo  = static_cast<int>('Y'),
+    tesla = static_cast<int>('T'),
+    front = static_cast<int>('f'),
+    back  = static_cast<int>('b'),
+
+    elon  = static_cast<int>('M'),
+    user  = static_cast<int>('i'),
+
+    bLen = 17, bHei = 17;
+
+int map[bLen][bHei];
+int board[bLen][bHei];
+
+void prepareGame();
+void setupBoard();
+void setupMap();
+void placeFord();
+void placeYugo();
+void placeTesla();
+void placePlayer();
+
+void playGame();
+void movePlayer(int argX, int argY);
+void moveElon();
+void updateBoard();
+void checkAround();
+void spawnElon();
+void gameOver();
+void gameOverWin();
+
+void printBoard();
+void printOther(unsigned i);
+void printQuitMenu();
+bool printExitMenu();
+void printStory();
+void printMap();
+void printFancy(string s);
+int printMainMenu();
+
+char getYN();
+int getDirect(int i, int j);
+
+int main(){
+    srand(time(NULL));
+    bool keepPlaying = true;
+    while(keepPlaying){
+        int choice = printMainMenu();
+        switch(choice){
+        case 0:
+            playGame();
+            break;
+        case 1:
+            printStory();
+            break;
+        case 2:
+            keepPlaying = printExitMenu();
+            break;
+        }
+    }
+
+    return 0;
+}
+
+void prepareGame(){
+    elonSpawned = false;
+    elonMoveable = true;
+    isSafe = true;
+    alive = true;
+    ignoreFord = false;
+    ignoreYugo = false;
+    ignoreTesla = false;
+    ignoreFront = false;
+    ignoreBack = false;
+    exitGame = false;
+    turn = 0;
+    frozenTill = 0;
+    setupMap();
+    setupBoard();
+    checkAround();
+}
+void setupBoard(){
+    for(unsigned i = 0; i < bHei; i++){
+        for(unsigned j = 0; j < bLen; j++){
+            if(i == 0 || i == bHei - 1){
+                board[i][j] = wallH;
+            } else if(j == 0 || j == bLen - 1){
+                board[i][j] = wallV;
+            } else {
+                board[i][j] = fog;
+            }
+        }
+    }
+    board[0][0] = wallC;
+    board[0][bLen - 1] = wallC;
+    board[bHei - 1][0] = wallC;
+    board[bHei - 1][bLen - 1] = wallC;
+    board[userY][userX] = user;
+    updateBoard();
+}
+void setupMap(){
+    for(unsigned i = 0; i < bLen; i++){
+        for(unsigned j = 0; j < bHei; j++){
+            if(i == 0 || i == bLen - 1 || j == 0 || j == bHei - 1){
+                map[i][j] = wall;
+            } else {
+                map[i][j] = empty;
+            }
+        }
+    }
+
+    placeFord();
+    placeYugo();
+    placeTesla();
+    placePlayer();
+
+}
+void placeFord(){
+    int orient, placeX, placeY;
+
+    //orientation key:
+    // 0 = up ^
+    // 1 = left <
+    // 2 = down v
+    // 3 = right >
+    orient = rand() % 4;
+    switch(orient){
+    case 0:
+        placeX = (rand() % 14) + 1;
+        placeY = (rand() % 13) + 1;
+        map[placeY]    [placeX]     = front;
+        map[placeY]    [placeX + 1] = front;
+        map[placeY + 1][placeX]     = ford;
+        map[placeY + 1][placeX + 1] = ford;
+        map[placeY + 2][placeX]     = back;
+        map[placeY + 2][placeX + 1] = back;
+        fordX = placeX;
+        fordY = placeY;
+        break;
+
+    case 1:
+        placeX = (rand() % 13) + 1;
+        placeY = (rand() % 14) + 1;
+        map[placeY]    [placeX]     = front;
+        map[placeY + 1][placeX]     = front;
+        map[placeY]    [placeX + 1] = ford;
+        map[placeY + 1][placeX + 1] = ford;
+        map[placeY]    [placeX + 2] = back;
+        map[placeY + 1][placeX + 2] = back;
+        fordX = placeX;
+        fordY = placeY;
+        break;
+
+    case 2:
+        placeX = (rand() % 14) + 1;
+        placeY = (rand() % 13) + 1;
+        map[placeY]    [placeX]     = back;
+        map[placeY]    [placeX + 1] = back;
+        map[placeY + 1][placeX]     = ford;
+        map[placeY + 1][placeX + 1] = ford;
+        map[placeY + 2][placeX]     = front;
+        map[placeY + 2][placeX + 1] = front;
+        fordX = placeX;
+        fordY = placeY;
+        break;
+
+    case 3:
+        placeX = (rand() % 13) + 1;
+        placeY = (rand() % 14) + 1;
+        map[placeY]    [placeX]     = back;
+        map[placeY + 1][placeX]     = back;
+        map[placeY]    [placeX + 1] = ford;
+        map[placeY + 1][placeX + 1] = ford;
+        map[placeY]    [placeX + 2] = front;
+        map[placeY + 1][placeX + 2] = front;
+        fordX = placeX;
+        fordY = placeY;
+        break;
+    }
+
+
+}
+void placeYugo(){
+    int orient, placeX, placeY;
+    bool valid;
+
+    do{
+        valid = true;
+        orient = rand() % 4;
+        if(orient % 2 == 0){
+            placeX = (rand() % 14) + 1;
+            placeY = (rand() % 13) + 1;
+            for(int i = -2; i < 5; i ++){
+                for(int j = -2; j < 4; j++){
+                    if(map[placeY + i][placeX + j] != wall && map[placeY + i][placeX + j] != empty){
+                        valid = false;
+                        i = 4;
+                        break;
+                    }
+                }
+            }
+        } else {
+            placeX = (rand() % 13) + 1;
+            placeY = (rand() % 14) + 1;
+            for(int i = -2; i < 4; i ++){
+                for(int j = -2; j < 5; j++){
+                    if(map[placeY + i][placeX + j] != wall && map[placeY + i][placeX + j] != empty){
+                        valid = false;
+                        i = 3;
+                        break;
+                    }
+                }
+            }
+        }
+    }while(!valid);
+
+    //orientation key:
+    // 0 = up ^
+    // 1 = left <
+    // 2 = down v
+    // 3 = right >
+    switch(orient){
+    case 0:
+        map[placeY]    [placeX]     = front;
+        map[placeY]    [placeX + 1] = front;
+        map[placeY + 1][placeX]     = yugo;
+        map[placeY + 1][placeX + 1] = yugo;
+        map[placeY + 2][placeX]     = back;
+        map[placeY + 2][placeX + 1] = back;
+        break;
+
+    case 1:
+        map[placeY]    [placeX]     = front;
+        map[placeY + 1][placeX]     = front;
+        map[placeY]    [placeX + 1] = yugo;
+        map[placeY + 1][placeX + 1] = yugo;
+        map[placeY]    [placeX + 2] = back;
+        map[placeY + 1][placeX + 2] = back;
+        break;
+
+    case 2:
+        map[placeY]    [placeX]     = back;
+        map[placeY]    [placeX + 1] = back;
+        map[placeY + 1][placeX]     = yugo;
+        map[placeY + 1][placeX + 1] = yugo;
+        map[placeY + 2][placeX]     = front;
+        map[placeY + 2][placeX + 1] = front;
+        break;
+
+    case 3:
+        map[placeY]    [placeX]     = back;
+        map[placeY + 1][placeX]     = back;
+        map[placeY]    [placeX + 1] = yugo;
+        map[placeY + 1][placeX + 1] = yugo;
+        map[placeY]    [placeX + 2] = front;
+        map[placeY + 1][placeX + 2] = front;
+        break;
+    }
+
+    yugoX = placeX;
+    yugoY = placeY;
+}
+void placeTesla(){
+    int orient, placeX, placeY;
+    bool valid;
+
+    do{
+        valid = true;
+        orient = rand() % 4;
+        if(orient % 2 == 0){
+            placeX = (rand() % 14) + 1;
+            placeY = (rand() % 13) + 1;
+            for(int i = -2; i < 5; i ++){
+                for(int j = -2; j < 4; j++){
+                    if(map[placeY + i][placeX + j] != wall && map[placeY + i][placeX + j] != empty){
+                        valid = false;
+                        i = 4;
+                        break;
+                    }
+                }
+            }
+        } else {
+            placeX = (rand() % 13) + 1;
+            placeY = (rand() % 14) + 1;
+            for(int i = -2; i < 4; i ++){
+                for(int j = -2; j < 5; j++){
+                    if(map[placeY + i][placeX + j] != wall && map[placeY + i][placeX + j] != empty){
+                        valid = false;
+                        i = 3;
+                        break;
+                    }
+                }
+            }
+        }
+    }while(!valid);
+
+    //orientation key:
+    // 0 = up ^
+    // 1 = left <
+    // 2 = down v
+    // 3 = right >
+    switch(orient){
+    case 0:
+        map[placeY]    [placeX]     = front;
+        map[placeY]    [placeX + 1] = front;
+        map[placeY + 1][placeX]     = tesla;
+        map[placeY + 1][placeX + 1] = tesla;
+        map[placeY + 2][placeX]     = back;
+        map[placeY + 2][placeX + 1] = back;
+        break;
+
+    case 1:
+        map[placeY]    [placeX]     = front;
+        map[placeY + 1][placeX]     = front;
+        map[placeY]    [placeX + 1] = tesla;
+        map[placeY + 1][placeX + 1] = tesla;
+        map[placeY]    [placeX + 2] = back;
+        map[placeY + 1][placeX + 2] = back;
+        break;
+
+    case 2:
+        map[placeY]    [placeX]     = back;
+        map[placeY]    [placeX + 1] = back;
+        map[placeY + 1][placeX]     = tesla;
+        map[placeY + 1][placeX + 1] = tesla;
+        map[placeY + 2][placeX]     = front;
+        map[placeY + 2][placeX + 1] = front;
+        break;
+
+    case 3:
+        map[placeY]    [placeX]     = back;
+        map[placeY + 1][placeX]     = back;
+        map[placeY]    [placeX + 1] = tesla;
+        map[placeY + 1][placeX + 1] = tesla;
+        map[placeY]    [placeX + 2] = front;
+        map[placeY + 1][placeX + 2] = front;
+        break;
+    }
+
+    teslaX = placeX;
+    teslaY = placeY;
+}
+void placePlayer(){
+    int placeX, placeY;
+    bool valid;
+
+    do{
+        valid = true;
+        placeX = (rand() % 15) + 1;
+        placeY = (rand() % 15) + 1;
+        for(int i = -1; i < 2; i++){
+            for(int j = -1; j < 2; j++){
+                if(map[placeY + i][placeX + j] != wall && map[placeY + i][placeX + j] != empty){
+                    valid = false;
+                    i = 2;
+                    break;
+                }
+            }
+        }
+    }while(!valid);
+
+    map[placeY][placeX] = user;
+    userX = placeX;
+    userY = placeY;
+}
+
+void playGame(){
+    do{
+        prepareGame();
+        while(alive){
+            if(GetAsyncKeyState(VK_UP) || GetAsyncKeyState(static_cast<int>('W'))){
+                movePlayer(0, -1);
+                while(GetAsyncKeyState(VK_UP) || GetAsyncKeyState(static_cast<int>('W'))){}
+            }
+            if(GetAsyncKeyState(VK_DOWN) || GetAsyncKeyState(static_cast<int>('S'))){
+                movePlayer(0, 1);
+                while(GetAsyncKeyState(VK_DOWN) || GetAsyncKeyState(static_cast<int>('S'))){}
+            }
+            if(GetAsyncKeyState(VK_LEFT) || GetAsyncKeyState(static_cast<int>('A'))){
+                movePlayer(-1, 0);
+                while(GetAsyncKeyState(VK_LEFT) || GetAsyncKeyState(static_cast<int>('A'))){}
+            }
+            if(GetAsyncKeyState(VK_RIGHT) || GetAsyncKeyState(static_cast<int>('D'))){
+                movePlayer(1, 0);
+                while(GetAsyncKeyState(VK_RIGHT) || GetAsyncKeyState(static_cast<int>('D'))){}
+            }
+            if(GetAsyncKeyState(VK_ESCAPE)){
+                printQuitMenu();
+                while(GetAsyncKeyState(VK_ESCAPE)){}
+                if(alive){
+                    turn--;
+                    movePlayer(0,0);
+                }
+            }
+            if(GetAsyncKeyState(static_cast<int>('V'))){
+                gameOverWin();
+                while(GetAsyncKeyState(static_cast<int>('V'))){}
+            }
+            if(GetAsyncKeyState(static_cast<int>('L'))){
+                gameOver();
+                while(GetAsyncKeyState(static_cast<int>('L'))){}
+            }
+        }
+    }while(newGame);
+}
+void movePlayer(int argX, int argY){
+    turn++;
+    if(elonSpawned && elonMoveable) moveElon();
+    else if(elonSpawned && !elonMoveable){
+        if(turn == frozenTill) elonMoveable = true;
+    }else if(turn == 10 && !elonSpawned){
+        spawnElon();
+    }
+    for(int i = -1; i < 2; i++){
+        for(int j = -1; j < 2; j++){
+            if(userX + j == 0 || userX + j == bLen - 1 || userY + i == 0 || userY + i == bHei - 1){
+                continue;
+            } else {
+                board[userY + i][userX + j] = fog;
+            }
+        }
+    }
+    map[userY][userX] = empty;
+    userX += argX;
+    userY += argY;
+    if(map[userY][userX] == empty){
+        map[userY][userX] = user;
+        updateBoard();
+    } else {
+        userX -= argX;
+        userY -= argY;
+        map[userY][userX] = user;
+        updateBoard();
+        cout << "You have hit something. Move in another direction." << endl;
+    }
+
+    checkAround();
+
+}
+void moveElon(){
+    map[elonY][elonX] = empty;
+    unsigned direc = rand() % 4;
+    switch(direc){
+    case 0:
+        if(map[elonY - 1][elonX] == empty){
+            elonY -= 1;
+        }
+        break;
+    case 1:
+        if(map[elonY][elonX + 1] == empty){
+            elonX += 1;
+        }
+        break;
+    case 2:
+        if(map[elonY + 1][elonX] == empty){
+            elonY += 1;
+        }
+        break;
+    case 3:
+        if(map[elonY][elonX - 1] == empty){
+            elonX -= 1;
+        }
+        break;
+    }
+    map[elonY][elonX] = elon;
+}
+void updateBoard(){
+    for(int i = -1; i < 2; i++){
+        for(int j = -1; j < 2; j++){
+            if(userX + j == 0 || userX + j == bLen - 1 || userY + i == 0 || userY + i == bHei - 1){
+                continue;
+            } else {
+                board[userY + i][userX + j] = map[userY + i][userX + j];
+            }
+        }
+    }
+    printBoard();
+}
+void checkAround(){
+    int cell, checkX, checkY, fordDirec = 0, yugoDirec = 0, teslaDirec = 0, carDirec = 0, elonDirec = 0;
+    bool fordFound = false, yugoFound = false, teslaFound = false, carFound = false, elonFound = false;
+    char enter = 'n';
+    string direc[] = {"next to", "North West of", "North of", "North East of", "East of", "South East of", "South of", "South West of", "West of"};
+    //check 3x3 around player
+    for(int i = -1; i < 2; i++){
+        for(int j = -1; j < 2; j++){
+            checkX = userX + j;
+            checkY = userY + i;
+            cell = map[checkY][checkX];
+            switch (cell) {
+            case elon:
+                elonFound = true;
+                if(elonMoveable){
+                    cout << "ELON HAS FOUND YOU!!" << endl;
+                    if(isSafe){
+                        cout << "You scream like a girl, startling him." << endl;
+                        cout << "He will not move for 5 turns." << endl;
+                        frozenTill = turn + 5;
+                        elonMoveable = false;
+                        isSafe = false;
+                    } else {
+                        cout << "Now, prepared for your girly shriek, he is not startled." << endl;
+                        cout << "He knocks you out and locks you in the Tesla Roadster." << endl;
+                        cout << "You awake the next day to find that you are now \"Starman\" and\n    will be blaster into space with the roadster." << endl;
+                        gameOver();
+                        goto endCheck;
+                    }
+                }
+                break;
+            case ford:
+                fordFound = true;
+                if(ignoreFord) continue;
+                ignoreFord = true;
+                cout << "You see the Ford Pinto!\nDo you want to get in (Y/N)?" << endl;
+                enter = getYN();
+                if(enter == 'Y' || enter == 'y'){
+                    cout << "You get in the Pinto and drive away safely." << endl;
+                    cout << "Not long after you leave, a light drizzle starts coming down." << endl;
+                    cout << "The almost non-exsitant impact of the water droplets on your car cause it to explode." << endl;
+                    gameOver();
+                    goto endCheck;
+                } else {
+                    cout << "You decide not to get into the Pinto." << endl;
+                    cout << "You feel proud of your decision to not get into a metal deathtrap." << endl;
+                }
+                break;
+            case yugo:
+                yugoFound = true;
+                if(ignoreYugo) continue;
+                ignoreYugo = true;
+                cout << "You see the Yugo!\nDo you want to get in (Y/N)?" << endl;
+                enter = getYN();
+                if(enter == 'Y'){
+                    cout << "You get in the Yugo and drive away safely." << endl;
+                    cout << "Not long after you leave, the engine shuts down. You get out and start walking when you find some trees." << endl;
+                    cout << "You're walking in the woods.\nThere's no one around and your phone is dead.\nOut of the corner of your eye you spot him.\nShia LaBeouf." << endl;
+                    cout << "\nHe's following you, about 30 feet back.\nHe gets down on all fours and breaks into a sprint.\nHe's gaining on you!\nShia LaBeouf." << endl;
+                    cout << "\nYou're looking for your looking for your car but you're all turned around.\nHe's almost upon you now\n and you can see there's blood on his face."
+                            "\nMy God, there's blood everywhere!" << endl;
+                    cout << "\nUnfortunately, you can't do Jis Jitsu, and so he catches you and eats you whole!\nYou have been eaten by actual cannible Shia LaBeouf." << endl;
+                    gameOver();
+                    goto endCheck;
+                } else {
+                    cout << "You decide not to get into the Yugo." << endl;
+                    cout << "You probably wouldn't have made if very far anyway." << endl;
+                }
+                break;
+            case tesla:
+                teslaFound = true;
+                if(ignoreTesla) continue;
+                ignoreTesla = true;
+                cout << "You see the Tesla Roadster!\nDo you want to get in (Y/N)?" << endl;
+                enter = getYN();
+                if(enter == 'Y'){
+                    cout << "You get in the Tesla and drive away safely." << endl;
+                    cout << "The next day, when you drive up to your minimum wage job in a Tesla Roadster, no one is even slightly suspicious." << endl;
+                    cout << "Thinking he had already launched the car into space, Elon Musk launches himself into space the next day in search of it." << endl;
+                    gameOverWin();
+                    goto endCheck;
+                } else {
+                    cout << "You decide not to get into the Tesla Roadster." << endl;
+                    cout << "You stand for a moment, baffled at your decision to ignore victory." << endl;
+                }
+                break;
+            case front:
+                carFound = true;
+                if(ignoreFront || ignoreFord || ignoreTesla || ignoreYugo) continue;
+                carDirec = getDirect(i, j);
+                ignoreFront = true;
+                cout << "You see the front of a car. Try getting closer to see what it is." << endl;
+                break;
+            case back:
+                carFound = true;
+                if(ignoreBack || ignoreFord || ignoreTesla || ignoreYugo) continue;
+                carDirec = getDirect(i, j);
+                ignoreBack = true;
+                cout << "You see the back of a car. Try getting closer to see what it is." << endl;
+                break;
+
+            }
+        }
+    }
+    fordDirec = getDirect(fordY - userY, fordX - userX);
+    yugoDirec = getDirect(yugoY - userY, yugoX - userX);
+    teslaDirec = getDirect(teslaY - userY, teslaX - userX);
+    if(carFound){
+        if(carDirec == fordDirec || fordFound) fordDirec = 0;
+        else if(carDirec == yugoDirec || yugoFound) yugoDirec = 0;
+        else if(carDirec == teslaDirec || teslaFound) teslaDirec = 0;
+    }
+    ignoreFord = fordFound;
+    ignoreYugo = yugoFound;
+    ignoreTesla = teslaFound;
+    ignoreBack = false;
+    ignoreFront = false;
+    if(fordDirec == yugoDirec && fordDirec == teslaDirec){
+        cout << "You see 3 large objects " << direc[fordDirec] << " yourself." << endl;
+    } else if(fordDirec == yugoDirec || fordDirec == teslaDirec || yugoDirec == teslaDirec){
+
+        if(fordDirec - yugoDirec == 0){
+            cout << "You see 2 large objects " << direc[fordDirec] << " of yourself and 1 " << direc[teslaDirec] << " yourself." << endl;
+        }else if(fordDirec - teslaDirec == 0){
+            cout << "You see 2 large objects " << direc[fordDirec] << " of yourself and 1 " << direc[yugoDirec] << " yourself." << endl;
+        }else{
+            cout << "You see 2 large objects " << direc[yugoDirec] << " of yourself and 1 " << direc[fordDirec] << " yourself." << endl;
+        }
+    } else {
+        cout << "You see 1 large object to the " << direc[fordDirec] << ", " << direc[yugoDirec] << ", and " << direc[teslaDirec] << " yourself." << endl;
+    }
+    if(!elonFound){
+        if(elonSpawned && !elonMoveable){
+            elonDirec = getDirect(elonY - userY, elonX - userX);
+            cout << "You see something small move " << direc[elonDirec] << " yourself." << endl;
+        } else if(elonSpawned){
+            elonDirec = getDirect(elonY - userY, elonX - userX);
+            cout << "You see something small " << direc[elonDirec] << " yourself." << endl;
+        }
+    }
+
+
+    endCheck: ;
+}
+void spawnElon(){
+    int wall, pos;
+    bool valid = false;
+    string wallDirec;
+
+    do{
+        valid = true;
+        wall = rand() % 4;
+        pos = rand() % 15 + 1;
+        //wall guide
+        // 0 = north
+        // 1 = east
+        // 2 = south
+        // 3 = west
+        switch(wall){
+        case 0:
+            if(map[1][pos] == empty){
+                elonX = pos;
+                elonY = 1;
+                wallDirec = "North";
+                continue;
+            } else {
+                valid = false;
+            }
+            break;
+        case 1:
+            if(map[pos][15] == empty){
+                elonX = 15;
+                elonY = pos;
+                wallDirec = "East";
+                continue;
+            } else {
+                valid = false;
+            }break;
+        case 2:
+            if(map[15][pos] == empty){
+                elonX = pos;
+                elonY = 15;
+                wallDirec = "South";
+                continue;
+            } else {
+                valid = false;
+            }break;
+        case 3:
+            if(map[pos][1] == empty){
+                elonX = 1;
+                elonY = pos;
+                wallDirec = "West";
+                continue;
+            } else {
+                valid = false;
+            }break;
+        }
+    }while(!valid);
+
+    map[elonY][elonX] = elon;
+    elonSpawned = true;
+    cout << "You hear someone enter the room along the " << wallDirec << " wall." << endl;
+}
+void gameOver(){
+    cout << "\nGame Over - You Lost" << endl;
+    printFancy("Would you like to play again (Y/N)?");
+    char cont = getYN();
+    alive = false;
+    avgTurns *= (wins + losses);
+    avgTurns += turn;
+    losses++;
+    avgTurns /= (wins + losses);
+    if(cont == 'Y'){
+        newGame = true;
+    } else {
+        newGame = false;
+    }
+}
+void gameOverWin(){
+    cout << "\nGame Over - You Won" << endl;
+    printFancy("Would you like to play again (Y/N)?");
+    char cont = getYN();
+    alive = false;
+    avgTurns *= (wins + losses);
+    avgTurns += turn;
+    wins++;
+    avgTurns /= (wins + losses);
+    if(cont == 'Y'){
+        newGame = true;
+    } else {
+        newGame = false;
+    }
+}
+
+void printBoard(){
+    system("CLS");
+    for(unsigned i = 0; i < bLen; i++){
+        for(unsigned j = 0; j < bHei; j++){
+            cout << static_cast<char>(board[i][j]);
+        }
+        printOther(i);
+        cout<<endl;
+    }
+    //printMap();
+}
+void printOther(unsigned i){
+    switch (i){
+    case 0:
+        cout << " " << static_cast<char>(174) << "Legend" << static_cast<char>(175);
+        break;
+    case 1:
+        cout << " i = You";
+        break;
+    case 2:
+        cout << " M = Elon Musk";
+        break;
+    case 3:
+        cout << " f = Front of a car";
+        break;
+    case 4:
+        cout << " b = Back of a car";
+        break;
+    case 5:
+        cout << " F = Ford Pinto";
+        break;
+    case 6:
+        cout << " Y = Yugo";
+        break;
+    case 7:
+        cout <<" T = Tesla Roadster";
+        break;
+    case 8: break;
+    case 9:
+        cout << " " << static_cast<char>(174) << "Instructions" << static_cast<char>(175);
+        break;
+    case 10:
+        cout << " Move with WASD/Arrow Keys";
+        break;
+    case 11:
+        cout << " Quit with ESC";
+        break;
+    case 12:
+        cout << " Find the Tesla Roadster to win";
+        break;
+    case 13:
+        cout << " Don't get caught or into the wrong car";
+        break;
+    case 14: break;
+    case 15:
+        if(!elonSpawned){
+            cout << " Elon Musk is nowhere to be found";
+        }else{
+            cout << " Elon has found you " << static_cast<int>(!isSafe) << " times";
+        }
+        break;
+    case 16:
+        cout << " Turn: " << turn;
+        break;
+    default: break;
+    }
+}
+void printQuitMenu(){
+    system("CLS");
+    printFancy("Are you sure you want to quit (Y/N)?");
+    char cont = getYN();
+    if(cont == 'Y'){
+        alive = false;
+        newGame = false;
+    }
+    if(cont == 'N'){
+
+    }
+
+}
+bool printExitMenu(){
+    system("CLS");
+    printFancy("Are you sure you want to exit the game (Y/N)?");
+    char quit = getYN();
+    if(quit == 'Y'){
+        return false;
+    }
+    return true;
+}
+void printStory(){
+    system("CLS");
+    printFancy("The Story");
+    cout << "You find your way to SpaceX the night before the Tesla Roadster is to be mounted to a rocket and sent to space." << endl;
+    cout << "The building is dark and the car is somewhere within the same large room as yourself." << endl;
+    cout << "You goal: Steal the Roadster and drive away from the facility, saving it from its starry fate." << endl;
+    cout << "\nThe only catch is that there are two other cars in the same room: a Ford Pinto and a Yugo." << endl;
+    cout << "Getting in either of those will almost certain result in death." << endl;
+    cout << "\nAlso, being that you're not a professional burglar, you tripped the alarm on your way in, waking Elon Musk." << endl;
+    cout << "Upset by your late night intrusion, he is coming down to deal with you himself. He will be there in about 10 seconds." << endl;
+    cout << "If he finds you in that dark room, you should be able to get away from him once. But only once." << endl;
+    cout << "If he catches you a second time, he will make you the \"Starman\" and launch you into space with his Roadster." << endl;
+    cout << "\nIt is now DO or DIE time, and the fate of a single car rests entirely in your hands." << endl;
+    cout << "\n\nWhen you are ready, press ENTER." << endl;
+    while(!(GetAsyncKeyState(VK_RETURN))){}
+    while(GetAsyncKeyState(VK_RETURN)){}
+}
+void printMap(){
+    for(unsigned i = 0; i < bLen; i++){
+        for(unsigned j = 0; j < bHei; j++){
+            cout << static_cast<char>(map[i][j]);
+        }
+        cout<<endl;
+    }
+}
+void printFancy(string s){
+    int len = static_cast<int>(s.length());
+    for(int i = 0; i < 3; i++){
+        for(int j = 0; j < len+2; j++){
+            if(i == 0 && j == 0) cout << static_cast<char>(218);
+            else if (i == 0 && j == len + 1) cout << static_cast<char>(191);
+            else if (i == 2 && j == 0) cout << static_cast<char>(192);
+            else if (i == 2 && j == len + 1) cout << static_cast<char>(217);
+            else if (i == 0 || i == 2) cout << static_cast<char>(196);
+            else if (j == 0 || j == len + 1) cout << static_cast<char>(179);
+            else cout << s.at(j - 1);
+        }
+        cout << endl;
+    }
+}
+int printMainMenu(){
+    int menuVal = 0;
+    int selectValsOpen[] = {175, 32, 32, 32, 175, 32, 32, 32, 175};
+    int selectValsClose[] = {174, 32, 32, 32, 174, 32, 32, 32, 174};
+    bool selected = false;
+    do{
+        system("CLS");
+        cout << "Welcome to" <<endl;
+        printFancy("SAVE THE ROADSTER");
+        cout << "Navigate with W/^ and S/v" << endl;
+        cout << "Select with ENTER" << endl;
+        cout << static_cast<char>(selectValsOpen[menuVal]) << " 1. Play Game " << static_cast<char>(selectValsClose[menuVal]) << endl;
+        cout << static_cast<char>(selectValsOpen[menuVal + 3]) << " 2. Story " << static_cast<char>(selectValsClose[menuVal + 3]) << endl;
+        cout << static_cast<char>(selectValsOpen[menuVal + 6]) << " 3. Exit Game " << static_cast<char>(selectValsClose[menuVal + 6]) << endl;
+        cout << "\nWins: " << wins << " Losses: " << losses << endl;
+        cout << "Average Turns: " << fixed << setprecision(2) << avgTurns << endl;
+        while(true){
+            if(GetAsyncKeyState(static_cast<int>('W')) || GetAsyncKeyState(VK_UP)){
+                menuVal--;
+                menuVal = ((menuVal % 3) + 3) % 3;
+                while(GetAsyncKeyState(static_cast<int>('W')) || GetAsyncKeyState(VK_UP)){}
+                break;
+            }
+            if(GetAsyncKeyState(static_cast<int>('S')) || GetAsyncKeyState(VK_DOWN)){
+                menuVal++;
+                menuVal = ((menuVal % 3) + 3) % 3;
+                while(GetAsyncKeyState(static_cast<int>('S')) || GetAsyncKeyState(VK_DOWN)){}
+                break;
+            }
+            if(GetAsyncKeyState(VK_RETURN)){
+                selected = true;
+                while(GetAsyncKeyState(VK_RETURN)){}
+                break;
+            }
+        }
+
+    }while(!selected);
+    return menuVal;
+}
+
+char getYN(){
+    while(true){
+        if(GetAsyncKeyState(static_cast<int>('Y'))){
+            while(GetAsyncKeyState(static_cast<int>('Y'))){}
+            return 'Y';
+        }
+        if(GetAsyncKeyState(static_cast<int>('N'))){
+            while(GetAsyncKeyState(static_cast<int>('N'))){}
+            return 'N';
+        }
+    }
+}
+int getDirect(int i, int j){
+    if(i < 0){
+        if(j < 0)      return 1;
+        else if(j > 0)  return 3;
+        else            return 2;
+    }else if(i > 0){
+        if(j < 0)      return 7;
+        else if(j > 0)  return 5;
+        else            return 6;
+    }else {
+        if(j < 0)      return 8;
+        else if(j > 0)  return 4;
+        else            return 0;
+    }
+
+}
